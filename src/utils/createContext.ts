@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next'
 import { serialize } from 'cookie'
 import { getUserFromRequest } from './getUserFromReq'
 import { db } from './prisma'
+import { Session } from '@server/middlewares/deserializeUser'
 
 export function createContext({
     req,
@@ -20,7 +21,7 @@ export function createContext({
     }
 
     const reqC = { ...req } as NextApiRequest & {
-        user: any
+        user: Session | null
         setCookie: typeof setCookie
     }
 

@@ -1,8 +1,13 @@
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime'
+import { Session } from '@server/middlewares/deserializeUser'
 import { createRouter } from '@server/tools/createRouter'
-import { createSession, destroySession } from '@session/utils'
+import {
+    createSession,
+    destroySession,
+    sessionBySessionId,
+} from '@session/utils'
 import { TRPCError } from '@trpc/server'
-import { signJWT } from '@utils/jwt'
+import { signJWT, verifyJWT } from '@utils/jwt'
 import { v4 } from 'uuid'
 import { z } from 'zod'
 
@@ -41,7 +46,6 @@ export const authRouter = router
 
                 const accessToken = signJWT(
                     {
-                        email,
                         userId: user.userId,
                         sessionId: session.sessionId,
                     },
@@ -82,7 +86,6 @@ export const authRouter = router
 
                 const accessToken = signJWT(
                     {
-                        email,
                         userId: registeredUser.userId,
                         sessionId: session.sessionId,
                     },
@@ -115,8 +118,14 @@ export const authRouter = router
         },
     })
     .query('user', {
-        resolve({ ctx }) {
-            return ctx.req.user
+        async resolve({ ctx }) {
+            const user = ctx.req.user
+            if (!user) return { user, error: 'session is invalid' }
+            const userId = user.userId
+            const userDetails = await ctx.db.user.findFirst({
+                where: { userId },
+            })
+            return { user: userDetails, error: null }
         },
     })
     .query('logout', {
@@ -131,5 +140,26 @@ export const authRouter = router
         },
     })
     .query('refresh_token', {
-        resolve() {},
+        resolve({ ctx: { req } }) {
+            const refreshToken = req.cookies.refreshToken
+            if (!refreshToken)
+                return { token: '', error: 'refresh token not found' }
+            const { payload } = verifyJWT<Omit<Session, 'userId'>>(refreshToken)
+
+            if (!payload)
+                return {
+                    token: '',
+                    error: 'refresh token expired, please login again',
+                }
+
+            const sessionId = payload.sessionId
+
+            const session = sessionBySessionId(sessionId)
+
+            if (!session) return { token: '', error: 'session not found' }
+
+            const accessToken = signJWT(session, '1h')
+
+            return { token: accessToken, error: '' }
+        },
     })
