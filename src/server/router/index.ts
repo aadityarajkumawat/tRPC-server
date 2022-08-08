@@ -1,11 +1,17 @@
-import * as trpc from '@trpc/server'
-import { z } from 'zod'
+import { deserializeUser } from '@server/middlewares/deserializeUser'
+import { createRouter } from '@server/tools/createRouter'
+import { authRouter } from './auth'
 
-export const appRouter = trpc.router().query('hello', {
-    input: z.object({ text: z.string().nullish() }).nullish(),
-    resolve({ input }) {
-        return { greeting: `hello ${input?.text ?? 'world'}` }
-    },
-})
+export const appRouter = createRouter()
+    .middleware(({ next, ctx }) => {
+        console.log(ctx.req.cookies)
+        return next()
+    })
+    .middleware(({ next, ctx }) => {
+        const { req, res } = ctx
+        deserializeUser(req, res)
+        return next()
+    })
+    .merge('auth.', authRouter)
 
 export type AppRouter = typeof appRouter

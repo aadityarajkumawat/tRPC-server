@@ -15,6 +15,9 @@ export default withTRPC<AppRouter>({
 
         return {
             url,
+            headers() {
+                return { cookie: ctx?.req?.headers.cookie }
+            },
         }
     },
     ssr: true,
