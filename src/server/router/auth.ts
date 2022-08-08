@@ -1,5 +1,6 @@
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime'
 import { createRouter } from '@server/tools/createRouter'
+import { createSession, destroySession } from '@session/utils'
 import { TRPCError } from '@trpc/server'
 import { signJWT } from '@utils/jwt'
 import { v4 } from 'uuid'
@@ -17,8 +18,7 @@ const registerValidator = loginValidator
 type RegisterUser = z.infer<typeof registerValidator>
 
 const authOutput = z.object({
-    user: registerValidator.nullish(),
-    error: z.string().nullish(),
+    token: z.string(),
 })
 
 export const authRouter = router
@@ -37,16 +37,27 @@ export const authRouter = router
                 if (!passwordIsValid)
                     throw new Error('Email or Password is invalid')
 
+                const session = createSession(user.userId)
+
                 const accessToken = signJWT(
-                    { email, userId: user.userId },
-                    '20s',
+                    {
+                        email,
+                        userId: user.userId,
+                        sessionId: session.sessionId,
+                    },
+                    '1h',
                 )
 
-                req.setCookie('accessToken', accessToken, 1000 * 20)
+                const refreshToken = signJWT(
+                    { sessionId: session.sessionId },
+                    '1y',
+                )
 
-                return { user, error: null }
+                req.setCookie('refreshToken', refreshToken, 1000 * 40)
+
+                return { token: accessToken }
             } catch (error: any) {
-                return { user: null, error: error.message }
+                return { token: '' }
             }
         },
     })
@@ -67,11 +78,25 @@ export const authRouter = router
                     data: { email, password, userId },
                 })
 
-                const accessToken = signJWT({ email, userId }, '20s')
+                const session = createSession(registeredUser.userId)
 
-                req.setCookie('accessToken', accessToken, 1000 * 20)
+                const accessToken = signJWT(
+                    {
+                        email,
+                        userId: registeredUser.userId,
+                        sessionId: session.sessionId,
+                    },
+                    '1h',
+                )
 
-                return { user: registeredUser, error: null }
+                const refreshToken = signJWT(
+                    { sessionId: session.sessionId },
+                    '1y',
+                )
+
+                req.setCookie('refreshToken', refreshToken, 1000 * 40)
+
+                return { token: accessToken }
             } catch (error) {
                 if (error instanceof PrismaClientKnownRequestError) {
                     if (error.code === 'P2002') {
@@ -95,8 +120,16 @@ export const authRouter = router
         },
     })
     .query('logout', {
-        resolve({ ctx: { req } }) {
-            req.setCookie('accessToken', '', 0)
+        resolve({ ctx: { req, user } }) {
+            if (!user || !user.payload) return { success: true }
+            const sessionId = user.payload.sessionId
+
+            destroySession(sessionId)
+
+            req.setCookie('refreshToken', '', 0)
             return { success: true }
         },
+    })
+    .query('refresh_token', {
+        resolve() {},
     })

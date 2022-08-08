@@ -2,15 +2,13 @@ import { NextApiRequest } from 'next'
 import { verifyJWT } from './jwt'
 
 interface ContextUser {
-    userId: string
-    email: string
-    name: string
     iat: string
     exp: number
+    sessionId: string
 }
 
 export function getUserFromRequest(req: NextApiRequest) {
-    const token = req.cookies.token
+    const token = req.cookies.refreshToken
 
     if (token) {
         try {

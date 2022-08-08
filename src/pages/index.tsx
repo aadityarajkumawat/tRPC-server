@@ -1,8 +1,11 @@
+import { trpc } from '@utils/trpc'
 import type { NextPage } from 'next'
 import Image from 'next/image'
-import { CSSProperties } from 'react'
+import { CSSProperties, useState } from 'react'
 
 const Home: NextPage = () => {
+    const [form, setForm] = useState({ email: '', password: '' })
+    const { mutate } = trpc.useMutation('auth.login')
     return (
         <div style={styles.container}>
             <div style={styles.baseContainer}>
@@ -34,6 +37,31 @@ const Home: NextPage = () => {
             >
                 It is a tRPC API based on NextJS made in Typescript and NodeJS
             </p>
+
+            <form
+                onSubmit={(e) => {
+                    e.preventDefault()
+                    mutate({ ...form })
+                }}
+            >
+                <input
+                    type='email'
+                    value={form.email}
+                    name='email'
+                    onChange={(e) =>
+                        setForm((f) => ({ ...f, email: e.target.value }))
+                    }
+                />
+                <input
+                    type='text'
+                    value={form.password}
+                    name='password'
+                    onChange={(e) =>
+                        setForm((f) => ({ ...f, password: e.target.value }))
+                    }
+                />
+                <input type='submit' name='login' />
+            </form>
         </div>
     )
 }
