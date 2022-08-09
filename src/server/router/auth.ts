@@ -223,7 +223,7 @@ export const authRouter = router
         async resolve({ ctx }) {
             const user = ctx.req.user
             const req = ctx.req
-            const authTokenName = 'Authorization'
+            const authTokenName = 'authorization'
             const tokenIdx = req.rawHeaders.findIndex(
                 (h) => h === authTokenName,
             )

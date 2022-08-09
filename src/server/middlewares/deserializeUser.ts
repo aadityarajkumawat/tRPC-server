@@ -18,7 +18,7 @@ export interface RefreshTokenPayload {
 }
 
 export function deserializeUser(req: Context['req'], _: NextApiResponse) {
-    const authTokenName = 'Authorization'
+    const authTokenName = 'authorization'
     const tokenIdx = req.rawHeaders.findIndex((h) => h === authTokenName)
 
     const accessToken = req.rawHeaders[tokenIdx + 1]
