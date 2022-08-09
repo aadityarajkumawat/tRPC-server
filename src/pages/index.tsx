@@ -38,7 +38,7 @@ const Home: NextPage = () => {
                 It is a tRPC API based on NextJS made in Typescript and NodeJS
             </p>
 
-            <form
+            {/* <form
                 onSubmit={(e) => {
                     e.preventDefault()
                     mutate({ ...form })
@@ -61,7 +61,7 @@ const Home: NextPage = () => {
                     }
                 />
                 <input type='submit' name='login' />
-            </form>
+            </form> */}
         </div>
     )
 }

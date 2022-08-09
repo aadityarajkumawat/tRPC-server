@@ -216,6 +216,8 @@ export const authRouter = router
     })
     .query('user', {
         async resolve({ ctx }) {
+            console.log(process.env.NODE_ENV)
+
             const users = await ctx.db.user.findMany()
             return { user: users, error: null }
             // const user = ctx.req.user
