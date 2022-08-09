@@ -1,7 +1,5 @@
-import { readFileSync, writeFileSync } from 'fs'
 import { v4 } from 'uuid'
-
-const fileName = './src/session/session.json'
+import { db } from '@utils/prisma'
 
 export interface SessionEntry {
     userId: string
@@ -9,41 +7,27 @@ export interface SessionEntry {
     tokenVersion: number
 }
 
-function getAllSessions() {
-    const dataStr = readFileSync(fileName, { encoding: 'utf-8' })
-    const data = JSON.parse(dataStr).sessions as Array<SessionEntry>
-    return data
+export async function sessionByUseryId(userId: string) {
+    const session = await db.session.findFirst({ where: { userId } })
+    return session
 }
 
-export function sessionByUseryId(userId: string) {
-    const data = getAllSessions()
-    return data.find((u) => u.userId === userId)
+export async function sessionBySessionId(sessionId: string) {
+    const session = await db.session.findFirst({ where: { sessionId } })
+    return session
 }
 
-export function sessionBySessionId(sessionId: string) {
-    const data = getAllSessions()
-    return data.find((u) => u.sessionId === sessionId)
+export async function createSession(userId: string, tokenVersion: number) {
+    const sessionData: SessionEntry = { userId, sessionId: v4(), tokenVersion }
+    const session = await db.session.upsert({
+        where: { userId },
+        update: {},
+        create: sessionData,
+    })
+
+    return session
 }
 
-export function createSession(userId: string, tokenVersion: number) {
-    const data = getAllSessions()
-    const sesh = sessionByUseryId(userId)
-
-    if (sesh) return sesh
-
-    const sessh: SessionEntry = { userId, sessionId: v4(), tokenVersion }
-    data.push(sessh)
-
-    const str = JSON.stringify({ sessions: data })
-    writeFileSync(fileName, str, { encoding: 'utf-8' })
-    return sessh
-}
-
-export function destroySession(sessionId: string) {
-    const data = getAllSessions()
-
-    const out = data.filter((d) => d.sessionId !== sessionId)
-
-    const str = JSON.stringify({ sessions: out })
-    writeFileSync(fileName, str, { encoding: 'utf-8' })
+export async function destroySession(sessionId: string) {
+    await db.session.delete({ where: { sessionId } })
 }

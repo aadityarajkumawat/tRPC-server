@@ -15,6 +15,7 @@ model User {
   email     String      @unique
   password  String
   AuthToken AuthToken[]
+  Session   Session?
 }
 
 model AuthToken {
@@ -22,4 +23,11 @@ model AuthToken {
   user         User   @relation(fields: [userId], references: [userId])
   userId       String @unique
   tokenVersion Int    @default(1)
+}
+
+model Session {
+  sessionId    String @id
+  user         User   @relation(fields: [userId], references: [userId])
+  userId       String @unique
+  tokenVersion Int
 }

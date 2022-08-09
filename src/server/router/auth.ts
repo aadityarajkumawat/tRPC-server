@@ -50,7 +50,7 @@ export const authRouter = router
                     // incrementing their token version
                     const sessionId = userSession.payload.sessionId
 
-                    const session = sessionBySessionId(sessionId)
+                    const session = await sessionBySessionId(sessionId)
                     if (!session) {
                         throw new AuthError(
                             'Session not found',
@@ -95,7 +95,7 @@ export const authRouter = router
                 }
 
                 // create a new session for the user
-                const session = createSession(
+                const session = await createSession(
                     user.userId,
                     authToken.tokenVersion,
                 )
@@ -148,7 +148,7 @@ export const authRouter = router
                     // incrementing their token version
                     const sessionId = userSession.payload.sessionId
 
-                    const session = sessionBySessionId(sessionId)
+                    const session = await sessionBySessionId(sessionId)
                     if (!session) throw new Error('Session not found')
 
                     destroySession(sessionId)
@@ -179,7 +179,7 @@ export const authRouter = router
                     },
                 })
 
-                const session = createSession(
+                const session = await createSession(
                     registeredUser.userId,
                     authToken.tokenVersion,
                 )
