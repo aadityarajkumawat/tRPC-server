@@ -150,7 +150,7 @@ export const authRouter = router
                     const sessionId = userSession.payload.sessionId
 
                     const session = await sessionBySessionId(sessionId)
-                    if (!session) throw new Error('Session not found')
+                    if (!session) throw new Error('Session not found, HERE')
 
                     await destroySession(sessionId)
                     req.setCookie(REFRESH_TOKEN, '', 0)
