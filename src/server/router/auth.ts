@@ -2,11 +2,6 @@ import { AuthError, ERROR_CODES, ONE_YEAR, REFRESH_TOKEN } from '@constants'
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime'
 import { RefreshTokenPayload } from '@server/middlewares/deserializeUser'
 import { createRouter } from '@server/tools/createRouter'
-import {
-    createSession,
-    destroySession,
-    sessionBySessionId,
-} from '@session/utils'
 import { TRPCError } from '@trpc/server'
 import { signJWT, verifyJWT } from '@utils/jwt'
 import { signAccessToken } from '@utils/signAccessToken'
@@ -34,8 +29,11 @@ export const authRouter = router
         output: authOutput,
         async resolve({ input, ctx }) {
             try {
-                const { db, req, user: userSession } = ctx
+                const { db, req, user: userSession, sessionStore } = ctx
                 const { email, password } = input
+
+                const { createSession, sessionBySessionId, destroySession } =
+                    sessionStore
 
                 if (req.user) {
                     // user loaded from access token
@@ -133,7 +131,10 @@ export const authRouter = router
         output: authOutput,
         async resolve({ input, ctx }) {
             try {
-                const { req, user: userSession, db } = ctx
+                const { req, user: userSession, db, sessionStore } = ctx
+
+                const { sessionBySessionId, destroySession, createSession } =
+                    sessionStore
 
                 if (req.user) {
                     // user loaded from access token
@@ -226,18 +227,18 @@ export const authRouter = router
         },
     })
     .query('logout', {
-        async resolve({ ctx: { req, user } }) {
+        async resolve({ ctx: { req, user, sessionStore } }) {
             if (!user || !user.payload) return { success: true }
             const sessionId = user.payload.sessionId
 
-            await destroySession(sessionId)
+            await sessionStore.destroySession(sessionId)
 
             req.setCookie(REFRESH_TOKEN, '', 0)
             return { success: true }
         },
     })
     .query('refresh_token', {
-        async resolve({ ctx: { req } }) {
+        async resolve({ ctx: { req, sessionStore } }) {
             const refreshToken = req.cookies.refreshToken
             if (!refreshToken)
                 return { token: '', error: 'refresh token not found' }
@@ -251,7 +252,7 @@ export const authRouter = router
 
             const sessionId = payload.sessionId
 
-            const session = await sessionBySessionId(sessionId)
+            const session = await sessionStore.sessionBySessionId(sessionId)
 
             if (!session) return { token: '', error: 'session not found' }
 

@@ -3,6 +3,7 @@ import { serialize } from 'cookie'
 import { getUserFromRequest } from './getUserFromReq'
 import { db } from './prisma'
 import { Session } from '@server/middlewares/deserializeUser'
+import { sessionDB } from '@session/utils'
 
 export function createContext({
     req,
@@ -11,7 +12,8 @@ export function createContext({
     req: NextApiRequest
     res: NextApiResponse
 }) {
-    const user = getUserFromRequest(req)
+    const sessionStore = sessionDB(db)
+    const user = getUserFromRequest(req, sessionStore)
 
     function setCookie(name: string, value: string, maxAge: number) {
         res.setHeader(
@@ -28,5 +30,5 @@ export function createContext({
     reqC.user = null
     reqC.setCookie = setCookie
 
-    return { req: reqC, res, db, user }
+    return { req: reqC, res, db, user, sessionStore }
 }

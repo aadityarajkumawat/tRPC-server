@@ -1,4 +1,3 @@
-import { sessionBySessionId } from '@session/utils'
 import { NextApiRequest } from 'next'
 import { verifyJWT } from './jwt'
 
@@ -9,7 +8,7 @@ interface ContextUser {
     tokenVersion: number
 }
 
-export function getUserFromRequest(req: NextApiRequest) {
+export function getUserFromRequest(req: NextApiRequest, sessionStore: any) {
     const token = req.cookies.refreshToken
 
     if (token) {
@@ -18,7 +17,7 @@ export function getUserFromRequest(req: NextApiRequest) {
             if (!verified.payload)
                 throw new Error('Session not found:Invalid token')
             ;(async function () {
-                const session = await sessionBySessionId(
+                const session = await sessionStore.sessionBySessionId(
                     verified.payload.sessionId,
                 )
                 if (!session) throw new Error('Session not found')
