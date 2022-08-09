@@ -1,4 +1,4 @@
-import { ONE_YEAR, REFRESH_TOKEN } from '@constants'
+import { AuthError, ERROR_CODES, ONE_YEAR, REFRESH_TOKEN } from '@constants'
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime'
 import { RefreshTokenPayload } from '@server/middlewares/deserializeUser'
 import { createRouter } from '@server/tools/createRouter'
@@ -51,7 +51,12 @@ export const authRouter = router
                     const sessionId = userSession.payload.sessionId
 
                     const session = sessionBySessionId(sessionId)
-                    if (!session) throw new Error('Session not found')
+                    if (!session) {
+                        throw new AuthError(
+                            'Session not found',
+                            ERROR_CODES.SESSION_NOT_FOUND,
+                        )
+                    }
 
                     destroySession(sessionId)
                     req.setCookie(REFRESH_TOKEN, '', 0)
@@ -65,7 +70,12 @@ export const authRouter = router
                 }
 
                 const user = await db.user.findFirst({ where: { email } })
-                if (!user) throw new Error('Email or Password is invalid')
+                if (!user) {
+                    throw new AuthError(
+                        'Email or Password is invalid',
+                        ERROR_CODES.INVALID_CREDENTIALS,
+                    )
+                }
 
                 // if the user has a token version, then, we update it,
                 // else we create a new one and user that version to encode
@@ -77,8 +87,12 @@ export const authRouter = router
 
                 const passwordIsValid = password === user.password
 
-                if (!passwordIsValid)
-                    throw new Error('Email or Password is invalid')
+                if (!passwordIsValid) {
+                    throw new AuthError(
+                        'Email or Password is invalid',
+                        ERROR_CODES.INVALID_CREDENTIALS,
+                    )
+                }
 
                 // create a new session for the user
                 const session = createSession(
@@ -97,9 +111,19 @@ export const authRouter = router
 
                 return { token: accessToken, error: null }
             } catch (error: any) {
-                return {
-                    token: null,
-                    error: { type: error.message, code: 100 },
+                if (error instanceof AuthError) {
+                    return {
+                        token: null,
+                        error: { type: error.message, code: error.code },
+                    }
+                } else {
+                    return {
+                        token: null,
+                        error: {
+                            type: 'INTERNAL_SERVER_ERROR',
+                            code: ERROR_CODES.INTERNAL_SERVER_ERROR,
+                        },
+                    }
                 }
             }
         },
