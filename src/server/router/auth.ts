@@ -11,6 +11,7 @@ import { signAccessToken } from '@utils/signAccessToken'
 import { signRefreshToken } from '@utils/signRefreshToken'
 import { v4 } from 'uuid'
 import { z } from 'zod'
+import jwt from 'jsonwebtoken'
 
 const router = createRouter()
 
@@ -233,10 +234,13 @@ export const authRouter = router
             }
 
             const { payload } = verifyJWT<AccessTokenPayload>(accessToken)
+
             if (!user)
                 return {
                     user,
-                    error: `session is invalid:${JSON.stringify(payload)}`,
+                    error: `session is invalid:${JSON.stringify(
+                        payload,
+                    )}:${JSON.stringify(jwt.decode(accessToken))}`,
                 }
             const userId = user.userId
             const userDetails = await ctx.db.user.findFirst({
