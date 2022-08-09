@@ -58,7 +58,7 @@ export const authRouter = router
                         )
                     }
 
-                    destroySession(sessionId)
+                    await destroySession(sessionId)
                     req.setCookie(REFRESH_TOKEN, '', 0)
 
                     // this is where we invalidate the refresh token
@@ -151,7 +151,7 @@ export const authRouter = router
                     const session = await sessionBySessionId(sessionId)
                     if (!session) throw new Error('Session not found')
 
-                    destroySession(sessionId)
+                    await destroySession(sessionId)
                     req.setCookie(REFRESH_TOKEN, '', 0)
 
                     // this is where we invalidate the refresh token
@@ -230,18 +230,18 @@ export const authRouter = router
         },
     })
     .query('logout', {
-        resolve({ ctx: { req, user } }) {
+        async resolve({ ctx: { req, user } }) {
             if (!user || !user.payload) return { success: true }
             const sessionId = user.payload.sessionId
 
-            destroySession(sessionId)
+            await destroySession(sessionId)
 
             req.setCookie(REFRESH_TOKEN, '', 0)
             return { success: true }
         },
     })
     .query('refresh_token', {
-        resolve({ ctx: { req } }) {
+        async resolve({ ctx: { req } }) {
             const refreshToken = req.cookies.refreshToken
             if (!refreshToken)
                 return { token: '', error: 'refresh token not found' }
@@ -255,7 +255,7 @@ export const authRouter = router
 
             const sessionId = payload.sessionId
 
-            const session = sessionBySessionId(sessionId)
+            const session = await sessionBySessionId(sessionId)
 
             if (!session) return { token: '', error: 'session not found' }
 

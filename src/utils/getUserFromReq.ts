@@ -17,13 +17,17 @@ export function getUserFromRequest(req: NextApiRequest) {
             const verified = verifyJWT<ContextUser>(token)
             if (!verified.payload)
                 throw new Error('Session not found:Invalid token')
-            const session = sessionBySessionId(verified.payload.sessionId)
-            if (!session) throw new Error('Session not found')
-            // console.log(verified, session)
+            ;(async function () {
+                const session = await sessionBySessionId(
+                    verified.payload.sessionId,
+                )
+                if (!session) throw new Error('Session not found')
+                // console.log(verified, session)
 
-            if (verified.payload.tokenVersion !== session.tokenVersion) {
-                throw new Error('Session Expired, login again')
-            }
+                if (verified.payload.tokenVersion !== session.tokenVersion) {
+                    throw new Error('Session Expired, login again')
+                }
+            })()
 
             return verified
         } catch (error) {
