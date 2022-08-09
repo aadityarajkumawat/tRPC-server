@@ -21,7 +21,7 @@ export function getUserFromRequest(req: NextApiRequest, sessionStore: any) {
                     verified.payload.sessionId,
                 )
                 if (!session) throw new Error('Session not found')
-                // console.log(verified, session)
+                console.log(verified, session)
 
                 if (verified.payload.tokenVersion !== session.tokenVersion) {
                     throw new Error('Session Expired, login again')

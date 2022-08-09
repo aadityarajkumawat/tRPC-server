@@ -235,12 +235,20 @@ export const authRouter = router
 
             const { payload } = verifyJWT<AccessTokenPayload>(accessToken)
 
+            console.log(
+                `session is invalid:${JSON.stringify(payload)}:${JSON.stringify(
+                    jwt.decode(accessToken),
+                )}:${accessToken}`,
+            )
+
             if (!user)
                 return {
                     user,
                     error: `session is invalid:${JSON.stringify(
                         payload,
-                    )}:${JSON.stringify(jwt.decode(accessToken))}`,
+                    )}:${JSON.stringify(
+                        jwt.decode(accessToken),
+                    )}:${accessToken}`,
                 }
             const userId = user.userId
             const userDetails = await ctx.db.user.findFirst({
