@@ -5,7 +5,6 @@ declare global {
     var db: PrismaClient | undefined
 }
 
-// removed generate
 export const db = new PrismaClient()
 
 if (!__is_prod__) {
