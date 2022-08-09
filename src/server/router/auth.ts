@@ -118,7 +118,7 @@ export const authRouter = router
                     return {
                         token: null,
                         error: {
-                            type: 'INTERNAL_SERVER_ERROR',
+                            type: `INTERNAL_SERVER_ERROR: ${error.message}`,
                             code: ERROR_CODES.INTERNAL_SERVER_ERROR,
                         },
                     }
