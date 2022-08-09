@@ -246,9 +246,9 @@ export const authRouter = router
                     user,
                     error: `session is invalid:${JSON.stringify(
                         payload,
-                    )}:${JSON.stringify(
-                        jwt.decode(accessToken),
-                    )}:${accessToken}`,
+                    )}:${JSON.stringify(jwt.decode(accessToken))}:${
+                        req.rawHeaders
+                    }:`,
                 }
             const userId = user.userId
             const userDetails = await ctx.db.user.findFirst({
