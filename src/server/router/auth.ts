@@ -216,13 +216,15 @@ export const authRouter = router
     })
     .query('user', {
         async resolve({ ctx }) {
-            const user = ctx.req.user
-            if (!user) return { user, error: 'session is invalid' }
-            const userId = user.userId
-            const userDetails = await ctx.db.user.findFirst({
-                where: { userId },
-            })
-            return { user: userDetails, error: null }
+            const users = await ctx.db.user.findMany()
+            return { user: users, error: null }
+            // const user = ctx.req.user
+            // if (!user) return { user, error: 'session is invalid' }
+            // const userId = user.userId
+            // const userDetails = await ctx.db.user.findFirst({
+            //     where: { userId },
+            // })
+            // return { user: userDetails, error: null }
         },
     })
     .query('logout', {
