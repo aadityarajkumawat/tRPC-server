@@ -3,12 +3,15 @@ import { v4 } from 'uuid'
 
 const fileName = './src/session/session.json'
 
+export interface SessionEntry {
+    userId: string
+    sessionId: string
+    tokenVersion: number
+}
+
 function getAllSessions() {
     const dataStr = readFileSync(fileName, { encoding: 'utf-8' })
-    const data = JSON.parse(dataStr).sessions as Array<{
-        userId: string
-        sessionId: string
-    }>
+    const data = JSON.parse(dataStr).sessions as Array<SessionEntry>
     return data
 }
 
@@ -22,13 +25,13 @@ export function sessionBySessionId(sessionId: string) {
     return data.find((u) => u.sessionId === sessionId)
 }
 
-export function createSession(userId: string) {
+export function createSession(userId: string, tokenVersion: number) {
     const data = getAllSessions()
     const sesh = sessionByUseryId(userId)
 
     if (sesh) return sesh
 
-    const sessh = { userId, sessionId: v4() }
+    const sessh: SessionEntry = { userId, sessionId: v4(), tokenVersion }
     data.push(sessh)
 
     const str = JSON.stringify({ sessions: data })

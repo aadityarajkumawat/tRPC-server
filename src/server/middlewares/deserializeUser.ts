@@ -7,6 +7,16 @@ export interface Session {
     sessionId: string
 }
 
+export interface AccessTokenPayload {
+    userId: string
+    sessionId: string
+}
+
+export interface RefreshTokenPayload {
+    sessionId: string
+    tokenVersion: number
+}
+
 export function deserializeUser(req: Context['req'], _: NextApiResponse) {
     const authTokenName = 'Authorization'
     const tokenIdx = req.rawHeaders.findIndex((h) => h === authTokenName)
@@ -17,7 +27,7 @@ export function deserializeUser(req: Context['req'], _: NextApiResponse) {
         return
     }
 
-    const { payload } = verifyJWT<Session>(accessToken)
+    const { payload } = verifyJWT<AccessTokenPayload>(accessToken)
 
     if (payload) {
         req.user = payload

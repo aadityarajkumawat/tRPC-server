@@ -4,7 +4,6 @@ import { authRouter } from './auth'
 
 export const appRouter = createRouter()
     .middleware(({ next, ctx }) => {
-        console.log(ctx.req.cookies)
         return next()
     })
     .middleware(({ next, ctx }) => {

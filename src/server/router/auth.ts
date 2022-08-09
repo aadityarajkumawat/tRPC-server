@@ -1,5 +1,6 @@
+import { ONE_YEAR, REFRESH_TOKEN } from '@constants'
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime'
-import { Session } from '@server/middlewares/deserializeUser'
+import { RefreshTokenPayload } from '@server/middlewares/deserializeUser'
 import { createRouter } from '@server/tools/createRouter'
 import {
     createSession,
@@ -8,6 +9,8 @@ import {
 } from '@session/utils'
 import { TRPCError } from '@trpc/server'
 import { signJWT, verifyJWT } from '@utils/jwt'
+import { signAccessToken } from '@utils/signAccessToken'
+import { signRefreshToken } from '@utils/signRefreshToken'
 import { v4 } from 'uuid'
 import { z } from 'zod'
 
@@ -20,48 +23,84 @@ const loginValidator = z.object({
 
 const registerValidator = loginValidator
 
-type RegisterUser = z.infer<typeof registerValidator>
-
 const authOutput = z.object({
-    token: z.string(),
+    token: z.string().nullish(),
+    error: z.object({ type: z.string(), code: z.number() }).nullable(),
 })
 
 export const authRouter = router
     .mutation('login', {
         input: loginValidator,
         output: authOutput,
-        async resolve({ input, ctx: { req, db } }) {
+        async resolve({ input, ctx }) {
             try {
+                const { db, req, user: userSession } = ctx
                 const { email, password } = input
+
+                if (req.user) {
+                    // user loaded from access token
+                    // Authorization header is not supposed
+                    // to be found here.
+                }
+
+                if (userSession && userSession.payload) {
+                    // user session is loaded from the refresh token
+                    // not since the previous user is logging out
+                    // we revoke all their previous refresh tokens by
+                    // incrementing their token version
+                    const sessionId = userSession.payload.sessionId
+
+                    const session = sessionBySessionId(sessionId)
+                    if (!session) throw new Error('Session not found')
+
+                    destroySession(sessionId)
+                    req.setCookie(REFRESH_TOKEN, '', 0)
+
+                    // this is where we invalidate the refresh token
+                    // by incrementing the tokenVersion
+                    await db.authToken.update({
+                        where: { userId: session.userId },
+                        data: { tokenVersion: { increment: 1 } },
+                    })
+                }
 
                 const user = await db.user.findFirst({ where: { email } })
                 if (!user) throw new Error('Email or Password is invalid')
+
+                // if the user has a token version, then, we update it,
+                // else we create a new one and user that version to encode
+                // refresh token
+                const authToken = await db.authToken.update({
+                    where: { userId: user.userId },
+                    data: { tokenVersion: { increment: 1 } },
+                })
 
                 const passwordIsValid = password === user.password
 
                 if (!passwordIsValid)
                     throw new Error('Email or Password is invalid')
 
-                const session = createSession(user.userId)
-
-                const accessToken = signJWT(
-                    {
-                        userId: user.userId,
-                        sessionId: session.sessionId,
-                    },
-                    '1h',
+                // create a new session for the user
+                const session = createSession(
+                    user.userId,
+                    authToken.tokenVersion,
                 )
 
-                const refreshToken = signJWT(
-                    { sessionId: session.sessionId },
-                    '1y',
-                )
+                const accessToken = signAccessToken(session)
 
-                req.setCookie('refreshToken', refreshToken, 1000 * 40)
+                const refreshToken = signRefreshToken({
+                    sessionId: session.sessionId,
+                    tokenVersion: authToken.tokenVersion,
+                })
 
-                return { token: accessToken }
+                req.setCookie(REFRESH_TOKEN, refreshToken, ONE_YEAR)
+
+                return { token: accessToken, error: null }
             } catch (error: any) {
-                return { token: '' }
+                return {
+                    token: null,
+                    error: { type: error.message, code: 100 },
+                }
             }
         },
     })
@@ -70,9 +109,34 @@ export const authRouter = router
         output: authOutput,
         async resolve({ input, ctx }) {
             try {
-                const { req, user, db } = ctx
+                const { req, user: userSession, db } = ctx
 
-                if (user) throw new Error('Please logout first')
+                if (req.user) {
+                    // user loaded from access token
+                    // Authorization header is not supposed
+                    // to be found here.
+                }
+
+                if (userSession && userSession.payload) {
+                    // user session is loaded from the refresh token
+                    // not since the previous user is logging out
+                    // we revoke all their previous refresh tokens by
+                    // incrementing their token version
+                    const sessionId = userSession.payload.sessionId
+
+                    const session = sessionBySessionId(sessionId)
+                    if (!session) throw new Error('Session not found')
+
+                    destroySession(sessionId)
+                    req.setCookie(REFRESH_TOKEN, '', 0)
+
+                    // this is where we invalidate the refresh token
+                    // by incrementing the tokenVersion
+                    await db.authToken.update({
+                        where: { userId: session.userId },
+                        data: { tokenVersion: { increment: 1 } },
+                    })
+                }
 
                 const { email, password } = input
 
@@ -82,24 +146,33 @@ export const authRouter = router
                     data: { email, password, userId },
                 })
 
-                const session = createSession(registeredUser.userId)
-
-                const accessToken = signJWT(
-                    {
+                // if the user if getting created for the first time
+                // then we create a new authToken entry
+                const authToken = await db.authToken.create({
+                    data: {
+                        authTokenId: v4(),
                         userId: registeredUser.userId,
-                        sessionId: session.sessionId,
                     },
-                    '1h',
+                })
+
+                const session = createSession(
+                    registeredUser.userId,
+                    authToken.tokenVersion,
                 )
 
-                const refreshToken = signJWT(
-                    { sessionId: session.sessionId },
-                    '1y',
-                )
+                const accessToken = signAccessToken({
+                    userId: registeredUser.userId,
+                    sessionId: session.sessionId,
+                })
 
-                req.setCookie('refreshToken', refreshToken, 1000 * 40)
+                const refreshToken = signRefreshToken({
+                    sessionId: session.sessionId,
+                    tokenVersion: authToken.tokenVersion,
+                })
 
-                return { token: accessToken }
+                req.setCookie(REFRESH_TOKEN, refreshToken, ONE_YEAR)
+
+                return { token: accessToken, error: null }
             } catch (error) {
                 if (error instanceof PrismaClientKnownRequestError) {
                     if (error.code === 'P2002') {
@@ -135,7 +208,7 @@ export const authRouter = router
 
             destroySession(sessionId)
 
-            req.setCookie('refreshToken', '', 0)
+            req.setCookie(REFRESH_TOKEN, '', 0)
             return { success: true }
         },
     })
@@ -144,7 +217,7 @@ export const authRouter = router
             const refreshToken = req.cookies.refreshToken
             if (!refreshToken)
                 return { token: '', error: 'refresh token not found' }
-            const { payload } = verifyJWT<Omit<Session, 'userId'>>(refreshToken)
+            const { payload } = verifyJWT<RefreshTokenPayload>(refreshToken)
 
             if (!payload)
                 return {
@@ -158,7 +231,7 @@ export const authRouter = router
 
             if (!session) return { token: '', error: 'session not found' }
 
-            const accessToken = signJWT(session, '1h')
+            const accessToken = signJWT(session, '15m')
 
             return { token: accessToken, error: '' }
         },

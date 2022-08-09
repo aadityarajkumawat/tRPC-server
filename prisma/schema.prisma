@@ -8,7 +8,15 @@ datasource db {
 }
 
 model User {
-  userId   String @id
-  email    String @unique
-  password String
+  userId    String      @id
+  email     String      @unique
+  password  String
+  AuthToken AuthToken[]
+}
+
+model AuthToken {
+  authTokenId  String @id
+  user         User   @relation(fields: [userId], references: [userId])
+  userId       String @unique
+  tokenVersion Int    @default(1)
 }
