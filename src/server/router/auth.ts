@@ -1,6 +1,9 @@
 import { AuthError, ERROR_CODES, ONE_YEAR, REFRESH_TOKEN } from '@constants'
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime'
-import { RefreshTokenPayload } from '@server/middlewares/deserializeUser'
+import {
+    AccessTokenPayload,
+    RefreshTokenPayload,
+} from '@server/middlewares/deserializeUser'
 import { createRouter } from '@server/tools/createRouter'
 import { TRPCError } from '@trpc/server'
 import { signJWT, verifyJWT } from '@utils/jwt'
@@ -218,7 +221,23 @@ export const authRouter = router
     .query('user', {
         async resolve({ ctx }) {
             const user = ctx.req.user
-            if (!user) return { user, error: 'session is invalid' }
+            const req = ctx.req
+            const authTokenName = 'Authorization'
+            const tokenIdx = req.rawHeaders.findIndex(
+                (h) => h === authTokenName,
+            )
+
+            const accessToken = req.rawHeaders[tokenIdx + 1]
+
+            if (!accessToken) {
+            }
+
+            const { payload } = verifyJWT<AccessTokenPayload>(accessToken)
+            if (!user)
+                return {
+                    user,
+                    error: `session is invalid:${JSON.stringify(payload)}`,
+                }
             const userId = user.userId
             const userDetails = await ctx.db.user.findFirst({
                 where: { userId },
