@@ -12,6 +12,7 @@ import { signRefreshToken } from '@utils/signRefreshToken'
 import { v4 } from 'uuid'
 import { z } from 'zod'
 import jwt from 'jsonwebtoken'
+import cors from 'cors'
 
 const router = createRouter()
 
@@ -32,6 +33,7 @@ export const authRouter = router
         input: loginValidator,
         output: authOutput,
         async resolve({ input, ctx }) {
+            cors({ origin: '*' })
             try {
                 const { db, req, user: userSession, sessionStore } = ctx
                 const { email, password } = input
