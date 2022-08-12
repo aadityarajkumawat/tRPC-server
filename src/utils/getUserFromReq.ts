@@ -11,7 +11,7 @@ interface ContextUser {
 export function getUserFromRequest(req: NextApiRequest, sessionStore: any) {
     const token = req.cookies.refreshToken
 
-    console.log(req.headers, req.cookies)
+    console.log('getUserFromReq: ', req.headers, req.cookies)
 
     if (token) {
         try {
@@ -23,7 +23,7 @@ export function getUserFromRequest(req: NextApiRequest, sessionStore: any) {
                     verified.payload.sessionId,
                 )
                 if (!session) throw new Error('Session not found')
-                console.log(verified, session)
+                console.log({ verified, session })
 
                 if (verified.payload.tokenVersion !== session.tokenVersion) {
                     throw new Error('Session Expired, login again')
