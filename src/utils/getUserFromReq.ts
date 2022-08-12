@@ -11,6 +11,8 @@ interface ContextUser {
 export function getUserFromRequest(req: NextApiRequest, sessionStore: any) {
     const token = req.cookies.refreshToken
 
+    console.log(req.headers, req.cookies)
+
     if (token) {
         try {
             const verified = verifyJWT<ContextUser>(token)

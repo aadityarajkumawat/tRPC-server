@@ -285,7 +285,7 @@ export const authRouter = router
         async resolve({ ctx: { req, sessionStore } }) {
             const refreshToken = req.cookies.refreshToken
 
-            console.log(req.cookies)
+            console.log(req.cookies, req.headers)
 
             try {
                 if (!refreshToken) throw new Error('refresh token not found')
