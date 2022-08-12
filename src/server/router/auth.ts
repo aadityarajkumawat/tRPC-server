@@ -114,21 +114,26 @@ export const authRouter = router
                 req.setCookie(REFRESH_TOKEN, refreshToken, ONE_YEAR)
 
                 return { token: accessToken, error: null }
-            } catch (error: any) {
-                if (error instanceof AuthError) {
-                    return {
-                        token: null,
-                        error: { type: error.message, code: error.code },
+            } catch (e: any) {
+                if (e instanceof AuthError) {
+                    let code = 'INTERNAL_SERVER_ERROR' as TRPCError['code']
+
+                    if (e.code === ERROR_CODES.INVALID_CREDENTIALS) {
+                        code = 'UNAUTHORIZED'
+                    } else if (e.code === ERROR_CODES.SESSION_NOT_FOUND) {
+                        code = 'UNAUTHORIZED'
                     }
-                } else {
-                    return {
-                        token: null,
-                        error: {
-                            type: `INTERNAL_SERVER_ERROR: ${error.message}`,
-                            code: ERROR_CODES.INTERNAL_SERVER_ERROR,
-                        },
-                    }
+
+                    throw new TRPCError({
+                        code: code,
+                        message: e.message,
+                    })
                 }
+
+                throw new TRPCError({
+                    code: 'INTERNAL_SERVER_ERROR',
+                    message: 'Something went wrong',
+                })
             }
         },
     })
@@ -224,73 +229,84 @@ export const authRouter = router
     .query('user', {
         async resolve({ ctx }) {
             const user = ctx.req.user
-            const req = ctx.req
-            const authTokenName = 'authorization'
-            const tokenIdx = req.rawHeaders.findIndex(
-                (h) => h === authTokenName,
-            )
 
-            const accessToken = req.rawHeaders[tokenIdx + 1]
-
-            if (!accessToken) {
+            if (!user) {
+                throw new AuthError(
+                    'Session not found',
+                    ERROR_CODES.SESSION_NOT_FOUND,
+                )
             }
 
-            const { payload } = verifyJWT<AccessTokenPayload>(accessToken)
+            try {
+                const userId = user.userId
+                const userDetails = await ctx.db.user.findFirst({
+                    where: { userId },
+                })
 
-            console.log(
-                `session is invalid:${JSON.stringify(payload)}:${JSON.stringify(
-                    jwt.decode(accessToken),
-                )}:${accessToken}`,
-            )
-
-            if (!user)
-                return {
-                    user,
-                    error: `session is invalid:${JSON.stringify(
-                        payload,
-                    )}:${JSON.stringify(jwt.decode(accessToken))}:${
-                        req.rawHeaders
-                    }:`,
+                return { user: userDetails, error: null }
+            } catch (e) {
+                if (e instanceof AuthError) {
+                    throw new TRPCError({
+                        code: 'UNAUTHORIZED',
+                        message: e.message,
+                    })
                 }
-            const userId = user.userId
-            const userDetails = await ctx.db.user.findFirst({
-                where: { userId },
-            })
-            return { user: userDetails, error: null }
+
+                throw new TRPCError({
+                    code: 'INTERNAL_SERVER_ERROR',
+                    message: 'Something went wrong',
+                })
+            }
         },
     })
-    .query('logout', {
+    .mutation('logout', {
+        output: z.object({
+            success: z.boolean(),
+            error: z.string().nullable(),
+        }),
         async resolve({ ctx: { req, user, sessionStore } }) {
-            if (!user || !user.payload) return { success: true }
+            if (!user || !user.payload) return { success: true, error: null }
             const sessionId = user.payload.sessionId
 
-            await sessionStore.destroySession(sessionId)
+            try {
+                await sessionStore.destroySession(sessionId)
 
-            req.setCookie(REFRESH_TOKEN, '', 0)
-            return { success: true }
+                req.setCookie(REFRESH_TOKEN, '', 0)
+                return { success: true, error: null }
+            } catch (error) {
+                throw new TRPCError({
+                    code: 'INTERNAL_SERVER_ERROR',
+                    message: '',
+                })
+            }
         },
     })
     .query('refresh_token', {
         async resolve({ ctx: { req, sessionStore } }) {
             const refreshToken = req.cookies.refreshToken
-            if (!refreshToken)
-                return { token: '', error: 'refresh token not found' }
-            const { payload } = verifyJWT<RefreshTokenPayload>(refreshToken)
 
-            if (!payload)
-                return {
-                    token: '',
-                    error: 'refresh token expired, please login again',
-                }
+            try {
+                if (!refreshToken) throw new Error('refresh token not found')
 
-            const sessionId = payload.sessionId
+                const { payload } = verifyJWT<RefreshTokenPayload>(refreshToken)
 
-            const session = await sessionStore.sessionBySessionId(sessionId)
+                if (!payload)
+                    throw new Error('refresh token expired, please login again')
 
-            if (!session) return { token: '', error: 'session not found' }
+                const sessionId = payload.sessionId
 
-            const accessToken = signJWT(session, '15m')
+                const session = await sessionStore.sessionBySessionId(sessionId)
 
-            return { token: accessToken, error: '' }
+                if (!session) throw new Error('session not found')
+
+                const accessToken = signJWT(session, '15m')
+
+                return { token: accessToken, error: '' }
+            } catch (error: any) {
+                throw new TRPCError({
+                    code: 'INTERNAL_SERVER_ERROR',
+                    message: error.message,
+                })
+            }
         },
     })
