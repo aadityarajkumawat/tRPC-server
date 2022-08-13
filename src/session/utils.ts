@@ -24,11 +24,19 @@ export const sessionDB = (db: PrismaClient) => {
             sessionId: v4(),
             tokenVersion,
         }
+
+        console.log({ sessionData })
+
         const session = await db.session.upsert({
             where: { userId },
-            update: {},
+            update: {
+                sessionId: sessionData.sessionId,
+                tokenVersion: sessionData.tokenVersion,
+            },
             create: sessionData,
         })
+
+        console.log('final', session)
 
         return session
     }

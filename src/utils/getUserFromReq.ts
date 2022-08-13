@@ -22,6 +22,9 @@ export function getUserFromRequest(req: NextApiRequest, sessionStore: any) {
                 const session = await sessionStore.sessionBySessionId(
                     verified.payload.sessionId,
                 )
+
+                console.log(session, verified);
+                
                 if (!session) throw new Error('Session not found')
                 console.log({ verified, session })
 

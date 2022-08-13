@@ -89,6 +89,9 @@ export const authRouter = router
                     data: { tokenVersion: { increment: 1 } },
                 })
 
+                console.log(authToken);
+                
+
                 const passwordIsValid = password === user.password
 
                 if (!passwordIsValid) {
@@ -282,7 +285,7 @@ export const authRouter = router
         },
     })
     .query('refresh_token', {
-        async resolve({ ctx: { req, sessionStore } }) {
+        async resolve({ ctx: { req, sessionStore, db } }) {
             const refreshToken = req.cookies.refreshToken
 
             console.log('/refresh_token route', req.cookies, req.headers)
@@ -296,6 +299,11 @@ export const authRouter = router
                     throw new Error('refresh token expired, please login again')
 
                 const sessionId = payload.sessionId
+
+                // const updatedSesh = await db.session.update({
+                //     where: { sessionId },
+                //     data: { tokenVersion: { increment: 1 } },
+                // })
 
                 const session = await sessionStore.sessionBySessionId(sessionId)
 
